@@ -118,7 +118,14 @@ app.post('/logout', (req, res) => {
 
 // 보호된 라우트 (JWT 인증 필요)
 app.get('/profile', passport.authenticate('jwt', { session: false }), (req, res) => {
-    res.json({ message: 'Welcome to your profile!', user: req.user });
+    const { id, username, created_at, refresh_token } = req.user;
+
+    res.json({
+        id,
+        username,
+        created_at,
+        refresh_token
+    });
 });
 
 // 서버 시작
