@@ -69,10 +69,52 @@ app.post('/login', (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ message: 'Login successful', token });
+        const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+
+        // 리프레시 토큰을 DB에 저장
+        pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id], (err) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error storing refresh token' });
+            }
+
+            res.json({
+                message: 'Login successful',
+                accessToken,
+                refreshToken
+            });
+        });
     });
 });
+
+app.post('/token', (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (refreshToken == null) return res.sendStatus(401);
+
+    // DB에서 리프레시 토큰 확인
+    pool.query('SELECT * FROM users WHERE refresh_token = $1', [refreshToken], (err, result) => {
+        if (err || result.rows.length === 0) return res.sendStatus(403); // 유효하지 않음
+
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
+            if (err) return res.sendStatus(403);
+
+            const accessToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+            res.json({ accessToken });
+        });
+    });
+});
+
+app.post('/logout', (req, res) => {
+    const { refreshToken } = req.body;
+
+    // 리프레시 토큰을 DB에서 제거
+    pool.query('UPDATE users SET refresh_token = NULL WHERE refresh_token = $1', [refreshToken], (err) => {
+        if (err) return res.sendStatus(500);
+        res.sendStatus(204);
+    });
+});
+
 
 // 보호된 라우트 (JWT 인증 필요)
 app.get('/profile', passport.authenticate('jwt', { session: false }), (req, res) => {
