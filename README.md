@@ -1,7 +1,6 @@
-```markdown
 # DawnAuth - OAuth2 인증 서버 (JWT 기반)
 
-DawnAuth는 **Express**와 **PostgreSQL**을 사용하여 구현한 JWT 기반 OAuth2 인증 서버입니다. 이 서버는 사용자 인증 및 권한 부여를 위해 **JWT** 토큰을 발급하며, 사용자 데이터는 **PostgreSQL**에 저장됩니다.
+DawnAuth는 **Express**와 **PostgreSQL**을 사용하여 구현한 JWT 기반 인증 서버입니다. 이 서버는 사용자 인증 및 권한 부여를 위해 **JWT** 토큰을 발급하며, 사용자 데이터는 **PostgreSQL**에 저장됩니다.
 
 ## 설치 및 실행
 
@@ -21,6 +20,7 @@ DB_HOST=localhost
 DB_PORT=5432
 
 JWT_SECRET=your_jwt_secret
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
 ```
 
 ### 3. 서버 실행
@@ -62,7 +62,7 @@ npx nodemon app.js
   ```
 
 ### 2. 로그인 (User Login)
-로그인 후 JWT 토큰을 발급합니다.
+로그인 후 JWT 토큰과 리프레시 토큰을 발급합니다.
 
 - **URL**: `/login`
 - **메서드**: `POST`
@@ -81,18 +81,61 @@ npx nodemon app.js
   ```json
   {
     "message": "Login successful",
-    "token": "your_jwt_token"
+    "accessToken": "your_access_token",
+    "refreshToken": "your_refresh_token"
   }
   ```
 
-### 3. 프로필 조회 (Protected Route)
+### 3. 리프레시 토큰 (Refresh Token)
+리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급받습니다.
+
+- **URL**: `/token`
+- **메서드**: `POST`
+- **요청 헤더**:
+  ```http
+  Content-Type: application/json
+  ```
+- **요청 본문**:
+  ```json
+  {
+    "refreshToken": "your_refresh_token"
+  }
+  ```
+- **응답 본문**:
+  ```json
+  {
+    "accessToken": "new_access_token"
+  }
+  ```
+
+### 4. 로그아웃 (User Logout)
+로그아웃하여 리프레시 토큰을 무효화합니다.
+
+- **URL**: `/logout`
+- **메서드**: `POST`
+- **요청 헤더**:
+  ```http
+  Content-Type: application/json
+  ```
+- **요청 본문**:
+  ```json
+  {
+    "refreshToken": "your_refresh_token"
+  }
+  ```
+- **응답 본문**:
+  ```
+  204 No Content
+  ```
+
+### 5. 프로필 조회 (Protected Route)
 JWT 토큰을 사용하여 사용자 정보를 보호된 라우트에서 조회합니다.
 
 - **URL**: `/profile`
 - **메서드**: `GET`
 - **요청 헤더**:
   ```http
-  Authorization: Bearer your_jwt_token
+  Authorization: Bearer your_access_token
   ```
 - **응답 본문**:
   ```json
@@ -116,6 +159,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    refresh_token VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
